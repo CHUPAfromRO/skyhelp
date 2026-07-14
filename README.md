@@ -11,9 +11,7 @@ oficiale AIP/NOTAM.
 ## Ce face acum
 
 - Hartă întunecată (temă tip cockpit) cu Leaflet + tile-uri CARTO dark.
-- 6 spații aeriene demo (CTR, TMA, zonă restricționată, zonă planoare) colorate
-  după clasă, cu opacitate mare dacă sunt "active" acum și opacitate mică dacă
-  sunt "inactive" — recalculat automat la fiecare 30 secunde.
+
 - Panou de legendă (buton "LEGENDĂ" din bara de sus).
 - Buton **FLY**: pornește `navigator.geolocation.watchPosition` cu acuratețe
   ridicată, urmărește continuu poziția telefonului, rotește simbolul avionului
@@ -32,42 +30,8 @@ apoi deschide `http://localhost:8000`. **Geolocația necesită HTTPS** în
 producție (GitHub Pages oferă asta automat) — pe `localhost` funcționează și
 fără HTTPS pentru testare.
 
-## Cum publici ca proiect nou pe GitHub
-
-Acesta e intenționat separat de `zborestimat`. Din acest folder:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit — RO Flight Nav"
-git branch -M main
-git remote add origin https://github.com/<user>/<nume-repo-nou>.git
-git push -u origin main
-```
 
 Activează apoi GitHub Pages din Settings → Pages → branch `main`.
-
-## Cum adaugi cheia OpenAIP (pas cu pas)
-
-1. Cont gratuit pe https://www.openaip.net → confirmi email-ul.
-2. Autentificat → **My Account → API Clients → Request new API client**.
-3. Copiezi cheia generată.
-4. O lipești în `app.js`, linia `OPENAIP_API_KEY: ""` → între ghilimele.
-5. Reîncarci pagina (hard refresh, `Ctrl+Shift+R`) — aeroporturile, NAVAID-urile,
-   obstacolele și punctele de raport reale din România apar automat pe hartă.
-
-Fără cheie, aplicația funcționează în continuare, dar arată doar spațiile
-aeriene demonstrative (fără aeroporturi/navaide/obstacole reale).
-
-## Straturi de date live (cu cheie API)
-
-- **Aeroporturi** — cerc alb (civil), roșu (militar), verde (planoare), albastru (elicoptere)
-- **NAVAID** — VOR / NDB / DME, cerc cyan
-- **Obstacole** — triunghi roșu, cu înălțime în popup
-- **Puncte de raport VFR** — punct galben
-
-Fiecare strat are un checkbox de afișare/ascundere în panoul "LEGENDĂ".
-
 ### Important — verifică denumirile câmpurilor
 
 Nu am putut confirma 100% din acest mediu numele exacte ale câmpurilor din
