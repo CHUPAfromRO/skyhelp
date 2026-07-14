@@ -28,15 +28,35 @@
     <label class="layer-toggle"><input type="checkbox" id="toggleNavaids" checked> NAVAID (VOR/NDB/DME)</label>
     <label class="layer-toggle"><input type="checkbox" id="toggleObstacles" checked> Obstacole</label>
     <label class="layer-toggle"><input type="checkbox" id="toggleReportingPoints" checked> Puncte de raport</label>
+    <label class="layer-toggle"><input type="checkbox" id="toggleAltitudeLabels" checked> Cote (plafoane)</label>
+    <label class="layer-toggle"><input type="checkbox" id="toggleTerrain" checked> Relief (teren + hillshade)</label>
+    <label class="layer-toggle"><input type="checkbox" id="togglePowerLines" checked> Linii electrice (OSM)</label>
+  </div>
+
+  <h2>Relief (culoare = altitudine teren)</h2>
+  <div class="legend-state-explainer">
+    <div class="state-row"><span class="altitude-dot" style="background:#388e3c"></span> 0–200 m</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#fbc02d"></span> 200–500 m</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#f57c00"></span> 500–1000 m</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#d32f2f"></span> 1000–1500 m</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#880e4f"></span> peste 1500 m</div>
   </div>
 
   <h2>Clase spații aeriene</h2>
   <div id="legendList"></div>
   <div class="legend-state-explainer">
-    <div class="state-row"><span class="swatch-demo active"></span> Activ acum</div>
-    <div class="state-row"><span class="swatch-demo inactive"></span> Inactiv acum</div>
-    <div class="state-row"><span class="swatch-demo unknown"></span> Depinde de NOTAM</div>
+    <div class="state-row"><span class="swatch-demo active"></span> Activ acum — vizibil</div>
+    <div class="state-row"><span class="swatch-demo unknown"></span> Depinde de NOTAM — vizibil</div>
+    <div class="state-row">🚫 Inactiv acum — dispare complet de pe hartă</div>
   </div>
+
+  <h2>Cote (culoare = podeaua zonei)</h2>
+  <div class="legend-state-explainer">
+    <div class="state-row"><span class="altitude-dot" style="background:#c62828"></span> podea sub 500 ft (atinge solul)</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#e65100"></span> podea 500–1500 ft</div>
+    <div class="state-row"><span class="altitude-dot" style="background:#2e7d32"></span> podea peste 1500 ft (probabil deasupra voastră)</div>
+  </div>
+
   <p class="legend-note">
     ⚠️ Date demonstrative. Nu folosiți pentru navigație reală — verificați întotdeauna
     AIP România / NOTAM oficiale înainte de zbor.

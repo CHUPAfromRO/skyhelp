@@ -125,7 +125,83 @@ ROMATSA) rămâne următorul pas major, discutat separat.
 
 1. ✅ Hartă + spații aeriene colorate pe clasă + activ/inactiv (acest pas)
 2. ✅ Poziție GPS live + urmărire (FLY)
-3. Aeroporturi reale (din OpenAIP) cu pistă, frecvențe, elevație
+3. ✅ Aeroporturi reale (din OpenAIP) cu pistă, frecvențe, elevație
 4. METAR/TAF live (aviationweather.gov, gratuit, fără cheie)
 5. NOTAM (cel mai complex — necesită EAD sau parsare self-briefing ROMATSA)
 6. Planificare rută cu verificare automată a spațiilor aeriene traversate
+7. ✅ Relief colorat (DEM) + hillshade + linii electrice OSM
+
+## Relief, obstacole și navigație la joasă înălțime — stadiu pe fiecare cerere
+
+Ai cerut 9 lucruri deodată. Trei sunt gata acum, restul necesită fie o sursă
+de date pe care încă n-o am, fie o etapă separată de dezvoltare (motivele
+sunt explicate mai jos, nu doar amânate fără justificare).
+
+**✅ Gata:**
+1. **Relief colorat pe altitudine (DEM)** — 5 benzi exact ca cele cerute
+   (0–200m verde, 200–500m galben, 500–1000m portocaliu, 1000–1500m roșu,
+   peste 1500m vișiniu). Sursă: tile-uri Terrarium (Mapzen/AWS), gratuite,
+   fără cheie, acoperire mondială.
+2. **Hillshade** — calculat direct din aceleași tile-uri de elevație, în
+   browser (nu există server public de hillshade dedicat care să mai
+   funcționeze — cel al Wikimedia a fost întrerupt oficial acum ani buni).
+3. **Linii electrice și stâlpi** — din OpenStreetMap (Overpass API), limitat
+   la zona vizibilă a hărții și doar la zoom ≥ 11, ca să nu suprasolicităm
+   serverul public.
+
+**⏸️ Următorul pas logic, dar nu construit încă în această rundă:**
+4. **Obstacole verticale suplimentare** (antene, turbine eoliene, coșuri,
+   turnuri telecom) — stratul de obstacole OpenAIP e deja activ, dar acoperă
+   doar ce e înregistrat aeronautic. O completare cu date OSM (`man_made=tower`,
+   `generator:source=wind` etc.) e un pas similar tehnic cu liniile electrice
+   de mai sus — spune-mi și îl adaug.
+5. **Zone de aterizare cunoscute** (stadioane, terenuri de sport, parcări
+   mari, câmpuri, heliporturi) — heliporturile vin deja din OpenAIP; restul
+   sunt interogabile din OSM, dar au nevoie de filtrare după suprafață ca să
+   nu umple harta cu parcări de 10 locuri.
+
+**🚫 Bază SMURD — nu pot inventa coordonate.** Nu am o sursă de date fiabilă
+pentru bazele SMURD de elicoptere. Dacă aveți o listă (chiar și un fișier
+simplu cu nume + coordonate), o pot integra direct ca strat separat.
+
+**⚠️ Necesită procesare offline serioasă a unui model digital de teren
+(GDAL/QGIS), nu doar cod JS în plus:**
+6. **Pante și văi înguste marcate automat** — detecție de vale/creastă
+   robustă are nevoie de analiză de curbură pe un DEM de rezoluție bună,
+   procesată offline. *Variantă mai simplă, posibilă direct din tile-urile
+   deja încărcate*: un strat de "pantă abruptă" calculat din același
+   gradient folosit la hillshade — mai puțin precis, dar fără pipeline nou.
+7. **Rute recomandate prin văi** — practic un algoritm de căutare de drum
+   (pathfinding) pe un cost-surface derivat din teren. Fezabil, dar e un
+   proiect în sine, separat de restul.
+8. **Curbe de nivel la 50/100m** — generabile client-side din tile-urile
+   Terrarium deja folosite (algoritm marching squares, ex. biblioteca
+   d3-contour), fără server nou. Follow-up rezonabil.
+9. **Grilă altitudine minimă de siguranță (5×5km, punctul cel mai înalt)** —
+   spre deosebire de 6-7, asta chiar e fezabilă fără pipeline offline: pot
+   eșantiona punctele cele mai înalte direct din tile-urile Terrarium deja
+   încărcate, doar pentru zona vizibilă curent (nu toată țara deodată).
+
+Spune-mi cu ce continuăm — aș recomanda fie #9 (grilă siguranță, fezabilă
+rapid și util imediat pentru elicopter), fie #8 (curbe de nivel), fie #4
+(obstacole OSM suplimentare).
+
+## Performanță și limitări onest declarate
+
+- **Relief-ul e mai greu de calculat** decât restul hărții (decodare pixel cu
+  pixel per tile, în Canvas) — poate fi vizibil mai lent pe telefoane mai
+  vechi. Are switch propriu ("Relief") ca să poată fi oprit complet.
+- Umbrirea de relief se calculează doar din pixelii interiori ai fiecărui
+  tile, nu din tile-urile vecine — pot apărea discontinuități fine la
+  marginile tile-urilor. Suficient pentru orientare vizuală rapidă, nu
+  pentru măsurători precise de pantă.
+- Codul de randare Canvas (decodare tile + colorare + umbrire) a fost
+  verificat pentru sintaxă și logica numerică a fost testată izolat
+  (formule confirmate corecte), dar **randarea efectivă pe ecran nu a putut
+  fi testată din mediul în care am scris codul** (fără Canvas real
+  disponibil acolo) — verificați vizual la voi și spuneți-mi dacă apare ceva
+  neașteptat.
+- Liniile electrice depind de completitudinea datelor OSM din zonă — pot
+  lipsi linii neînregistrate încă în OpenStreetMap. Nu înlocuiesc verificarea
+  vizuală în zbor.
+
