@@ -5,16 +5,8 @@
 //   - Spațiile aeriene de mai jos sunt DEMONSTRATIVE (cercuri aproximative în
 //     jurul unor aeroporturi reale), NU date oficiale AIP/NOTAM.
 //   - Nu folosiți această aplicație pentru navigație reală.
-//   - Pentru date reale, integrați OpenAIP (vezi CONFIG.OPENAIP_API_KEY mai jos
-//     și funcția fetchAirspacesFromOpenAIP()).
+//   - Cheia OpenAIP e în config.js, nu aici — vezi acel fișier.
 // =============================================================================
-
-const CONFIG = {
-  // Obțineți o cheie gratuită pe https://www.openaip.net (cont → API Clients)
-  OPENAIP_API_KEY: "944afbbd2ee12d2e76636ceb6c21702c",
-  ROMANIA_CENTER: [45.9432, 24.9668],
-  ROMANIA_ZOOM: 7
-}
 
 // ── Stil pe clasă de spațiu aerian (cod de culori) ─────────────────────────
 // Chei bazate pe enum-ul confirmat din schema OpenAIP (tip "airspace.type").
