@@ -10,24 +10,31 @@
 // =============================================================================
 
 const CONFIG = {
- 
-  OPENAIP_API_KEY: "944afbbd2ee12d2e76636ceb6c21702c",
+  // Obțineți o cheie gratuită pe https://www.openaip.net (cont → API Clients)
+  OPENAIP_API_KEY: "",
   ROMANIA_CENTER: [45.9432, 24.9668],
   ROMANIA_ZOOM: 7
 }
 
 // ── Stil pe clasă de spațiu aerian (cod de culori) ─────────────────────────
+// Chei bazate pe enum-ul confirmat din schema OpenAIP (tip "airspace.type").
 // Fiecare clasă are o culoare fixă; intensitatea (opacitate/saturație) se
 // schimbă în funcție de starea activ / inactiv / necunoscut (vezi mai jos).
 const AIRSPACE_STYLES = {
-  CTR:  { label: "CTR — Zonă de control",        color: "#2196f3" },
-  TMA:  { label: "TMA — Zonă terminală",         color: "#64b5f6" },
-  R:    { label: "R — Zonă restricționată",      color: "#e53935" },
-  D:    { label: "D — Zonă periculoasă",         color: "#fb8c00" },
-  P:    { label: "P — Zonă interzisă",           color: "#b71c1c" },
-  ATZ:  { label: "ATZ — Zonă trafic aerodrom",   color: "#ab47bc" },
-  GLIDER: { label: "Zonă planoare / activități", color: "#43a047" },
-  OTHER: { label: "Altă categorie",               color: "#9e9e9e" }
+  CTR:  { label: "CTR — Zonă de control",              color: "#2196f3" },
+  TMA:  { label: "TMA — Zonă terminală",                color: "#64b5f6" },
+  CTA:  { label: "CTA — Zonă de control (en-route)",    color: "#42a5f5" },
+  ATZ:  { label: "ATZ — Zonă trafic aerodrom",          color: "#ab47bc" },
+  MATZ: { label: "MATZ — ATZ militar",                  color: "#8e24aa" },
+  RESTRICTED: { label: "R — Zonă restricționată",       color: "#e53935" },
+  DANGER:     { label: "D — Zonă periculoasă",          color: "#fb8c00" },
+  PROHIBITED: { label: "P — Zonă interzisă",            color: "#b71c1c" },
+  WARNING:    { label: "W — Zonă de avertizare",        color: "#ffb300" },
+  TMZ:  { label: "TMZ — Transponder obligatoriu",       color: "#26a69a" },
+  RMZ:  { label: "RMZ — Radio obligatoriu",             color: "#00897b" },
+  GLIDING_SECTOR: { label: "Sector planoare",           color: "#43a047" },
+  AERIAL_SPORTING_RECREATIONAL: { label: "Activități aeriene sportive/recreative", color: "#66bb6a" },
+  OTHER: { label: "Altă categorie / necunoscut",         color: "#9e9e9e" }
 }
 
 // ── Date demonstrative de spații aeriene ───────────────────────────────────
@@ -71,7 +78,7 @@ const DEMO_AIRSPACES = [
   {
     id: "demo-restrictie-est",
     name: "DEMO Zonă restricționată (litoral)",
-    class: "R",
+    class: "RESTRICTED",
     center: [44.3622, 28.6900],
     radius: 15000,
     activation: { type: "NOTAM" }
@@ -79,7 +86,7 @@ const DEMO_AIRSPACES = [
   {
     id: "demo-planoare-deva",
     name: "DEMO Zonă planoare Deva",
-    class: "GLIDER",
+    class: "GLIDING_SECTOR",
     center: [45.8700, 22.9000],
     radius: 9000,
     activation: { type: "SCHEDULE", days: [0,6], from: "08:00", to: "18:00" }
@@ -132,7 +139,7 @@ function styleForState(baseColor, state) {
   }
 }
 
-function buildAirspaceLayers(list) {
+function buildDemoAirspaceLayers(list) {
   airspaceLayer.clearLayers()
   airspaceShapes.length = 0
 
@@ -140,19 +147,92 @@ function buildAirspaceLayers(list) {
     const styleInfo = AIRSPACE_STYLES[def.class] || AIRSPACE_STYLES.OTHER
     const circle = L.circle(def.center, { radius: def.radius })
     circle.bindTooltip(
-      `<b>${def.name}</b><br>${styleInfo.label}`,
+      `<b>${def.name}</b><br>${styleInfo.label} (demo)`,
       { className: "aw-tooltip", sticky: true }
     )
     circle.addTo(airspaceLayer)
-    airspaceShapes.push({ shape: circle, def, baseColor: styleInfo.color })
+    airspaceShapes.push({ shape: circle, baseColor: styleInfo.color, kind: "demo", def })
   })
 
   refreshAirspaceStates()
 }
 
+// ── Stare activ/inactiv pentru spații aeriene REALE (OpenAIP) ──────────────
+// Pe baza câmpurilor confirmate: activatedByNotam (boolean) și, dacă există,
+// activationTimes: [{start, end}, ...] (interval de dată/oră). Dacă niciunul
+// nu e prezent, tratăm zona ca permanentă/publicată (stare "active") — nu
+// avem cum să știm orarul exact fără să-l fi văzut confirmat.
+function classifyRealAirspaceState(airspace) {
+  if (airspace.activatedByNotam === true) return "unknown"
+
+  if (Array.isArray(airspace.activationTimes) && airspace.activationTimes.length > 0) {
+    const now = new Date()
+    const withinAny = airspace.activationTimes.some(w => {
+      const start = new Date(w.start)
+      const end = new Date(w.end)
+      if (isNaN(start) || isNaN(end)) return false
+      return now >= start && now <= end
+    })
+    return withinAny ? "active" : "inactive"
+  }
+
+  return "active"
+}
+
+function formatCeiling(limit) {
+  if (limit == null) return ""
+  if (typeof limit === "object") {
+    const val = limit.value ?? ""
+    const unit = limit.unit ?? ""
+    const ref = limit.referenceDatum ?? limit.reference ?? ""
+    return `${val}${unit} ${ref}`.trim()
+  }
+  return String(limit)
+}
+
+function buildRealAirspaceLayers(list) {
+  airspaceLayer.clearLayers()
+  airspaceShapes.length = 0
+
+  let skipped = 0
+
+  list.forEach(a => {
+    if (!a.geometry || !a.geometry.type || !a.geometry.coordinates) { skipped++; return }
+
+    const typeKey = typeof a.type === "string" ? a.type.toUpperCase() : null
+    if (typeKey == null) {
+      // "type" nu e string (posibil cod numeric dintr-o versiune veche a API-ului).
+      // Afișăm zona în gri și logăm valoarea ca să o poți raporta pentru mapare exactă.
+      console.warn("[OpenAIP] Spațiu aerian cu câmp 'type' neașteptat (nu e string):", a.type, a)
+    }
+    const styleInfo = (typeKey && AIRSPACE_STYLES[typeKey]) || AIRSPACE_STYLES.OTHER
+    const state = classifyRealAirspaceState(a)
+
+    const feature = { type: "Feature", properties: a, geometry: a.geometry }
+    const shape = L.geoJSON(feature, { style: () => styleForState(styleInfo.color, state) })
+
+    const ceilingInfo = [formatCeiling(a.lowerCeiling), formatCeiling(a.upperCeiling)]
+      .filter(Boolean).join(" → ")
+    const notamNote = a.activatedByNotam ? "<br><i>Activare prin NOTAM</i>" : ""
+
+    shape.bindTooltip(
+      `<b>${a.name || "Spațiu aerian"}</b><br>${styleInfo.label}${ceilingInfo ? `<br>${ceilingInfo}` : ""}${notamNote}`,
+      { className: "aw-tooltip", sticky: true }
+    )
+    shape.addTo(airspaceLayer)
+    airspaceShapes.push({ shape, baseColor: styleInfo.color, kind: "real", def: a })
+  })
+
+  if (skipped > 0) {
+    console.warn(`[OpenAIP] ${skipped} spații aeriene ignorate (fără geometrie recunoscută).`)
+  }
+
+  refreshAirspaceStates()
+}
+
 function refreshAirspaceStates() {
-  airspaceShapes.forEach(({ shape, def, baseColor }) => {
-    const { state } = isCurrentlyActive(def.activation)
+  airspaceShapes.forEach(({ shape, baseColor, kind, def }) => {
+    const state = kind === "demo" ? isCurrentlyActive(def.activation).state : classifyRealAirspaceState(def)
     shape.setStyle(styleForState(baseColor, state))
   })
 }
@@ -254,6 +334,7 @@ const fetchAirports = () => openaipFetch("airports")
 const fetchNavaids = () => openaipFetch("navaids")
 const fetchObstacles = () => openaipFetch("obstacles")
 const fetchReportingPoints = () => openaipFetch("reporting-points") // verificați slug-ul exact dacă răspunsul e gol
+const fetchRealAirspaces = () => openaipFetch("airspaces")
 
 // ── Straturi de hartă pentru datele OpenAIP ─────────────────────────────────
 const dataLayers = {
@@ -376,13 +457,20 @@ async function loadOpenAIPData() {
     return
   }
   try {
-    const [airports, navaids, obstacles, reportingPoints] = await Promise.all([
-      fetchAirports(), fetchNavaids(), fetchObstacles(), fetchReportingPoints()
+    const [airports, navaids, obstacles, reportingPoints, realAirspaces] = await Promise.all([
+      fetchAirports(), fetchNavaids(), fetchObstacles(), fetchReportingPoints(), fetchRealAirspaces()
     ])
     renderAirports(airports)
     renderNavaids(navaids)
     renderObstacles(obstacles)
     renderReportingPoints(reportingPoints)
+
+    if (realAirspaces.length > 0) {
+      buildRealAirspaceLayers(realAirspaces)
+      console.log(`[OpenAIP] ${realAirspaces.length} spații aeriene reale încărcate (au înlocuit cele demonstrative).`)
+    } else {
+      console.warn("[OpenAIP] Niciun spațiu aerian real primit — rămân cele demonstrative. Verificați consola pentru erori /airspaces.")
+    }
 
     map.attributionControl.addAttribution('<a href="https://www.openaip.net" target="_blank">© OpenAIP</a>')
 
@@ -393,7 +481,7 @@ async function loadOpenAIPData() {
 }
 
 // ── Inițializare date spații aeriene + date OpenAIP ─────────────────────────
-buildAirspaceLayers(DEMO_AIRSPACES)
+buildDemoAirspaceLayers(DEMO_AIRSPACES)
 renderLegend()
 loadOpenAIPData()
 

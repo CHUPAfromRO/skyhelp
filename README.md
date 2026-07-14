@@ -84,13 +84,29 @@ date. După ce pui cheia ta reală:
 4. Dacă `/reporting-points` întoarce gol, verifică în Swagger UI (docs.openaip.net,
    autentificat) dacă slug-ul corect e altul (ex. `reportingPoints` fără cratimă).
 
-## Spații aeriene reale (poligoane) — încă demonstrative
+## Spații aeriene reale (poligoane)
 
-Airspace-urile rămân cercuri demonstrative deocamdată. Motivul: geometria
-reală vine ca poligoane, iar câmpul care indică programul de activare
-(NOTAM/orar) nu i-am putut verifica exact. Următorul pas logic e să extindem
-`buildAirspaceLayers()` să folosească `L.geoJSON` cu geometria reală din
-`openaipFetch("airspaces")` — spune-mi când vrei să continuăm cu asta.
+Cu cheia API completată, aplicația încarcă acum **poligoane reale** de la
+`/airspaces` (nu doar cercuri demo) și le colorează după tipul confirmat din
+schema OpenAIP: `CTR`, `TMA`, `CTA`, `ATZ`, `MATZ`, `RESTRICTED`, `DANGER`,
+`PROHIBITED`, `WARNING`, `TMZ`, `RMZ`, `GLIDING_SECTOR`,
+`AERIAL_SPORTING_RECREATIONAL`.
+
+**Starea activ/inactiv** pentru zonele reale se calculează din:
+- `activatedByNotam: true` → afișată ca "depinde de NOTAM" (hașurat, amber)
+- `activationTimes: [{start, end}]` prezent → activă doar dacă *acum* e în
+  interval, altfel inactivă (estompată)
+- Niciuna dintre cele de mai sus → tratată ca **permanentă/publicată** (activă) —
+  cele mai multe CTR/TMA reale intră aici, pentru că API-ul nu expune
+  întotdeauna orare zilnice detaliate.
+
+Dacă preluarea eșuează sau întoarce 0 rezultate (verifică bara de sus a
+consolei), aplicația **revine automat** la cele 6 cercuri demonstrative, ca
+harta să nu rămână goală.
+
+**Tip neașteptat**: dacă un spațiu aerian are `type` ca număr în loc de text
+(posibil dintr-o versiune mai veche de API), zona apare gri și valoarea exactă
+e afișată în consolă — trimite-mi acea valoare și adaug maparea corectă.
 
 ## Licență date
 
