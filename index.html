@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>RO Flight Nav — Hartă spații aeriene</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-name">RO FLIGHT NAV</span>
+  </div>
+  <div class="clock" id="clock">--:--:--</div>
+  <button id="legendToggle" class="icon-btn" title="Legendă">LEGENDĂ</button>
+</header>
+
+<div id="map"></div>
+
+<!-- Panou legendă spații aeriene -->
+<aside id="legendPanel" class="panel hidden">
+  <h2>Straturi date (OpenAIP)</h2>
+  <div class="layers-section">
+    <label class="layer-toggle"><input type="checkbox" id="toggleAirports" checked> Aeroporturi</label>
+    <label class="layer-toggle"><input type="checkbox" id="toggleNavaids" checked> NAVAID (VOR/NDB/DME)</label>
+    <label class="layer-toggle"><input type="checkbox" id="toggleObstacles" checked> Obstacole</label>
+    <label class="layer-toggle"><input type="checkbox" id="toggleReportingPoints" checked> Puncte de raport</label>
+  </div>
+
+  <h2>Clase spații aeriene</h2>
+  <div id="legendList"></div>
+  <div class="legend-state-explainer">
+    <div class="state-row"><span class="swatch-demo active"></span> Activ acum</div>
+    <div class="state-row"><span class="swatch-demo inactive"></span> Inactiv acum</div>
+    <div class="state-row"><span class="swatch-demo unknown"></span> Depinde de NOTAM</div>
+  </div>
+  <p class="legend-note">
+    ⚠️ Date demonstrative. Nu folosiți pentru navigație reală — verificați întotdeauna
+    AIP România / NOTAM oficiale înainte de zbor.
+  </p>
+</aside>
+
+<!-- Bară de stare GPS + buton FLY -->
+<footer id="statusbar">
+  <div id="gpsStatus" class="gps-status">
+    <span class="gps-field"><label>LAT</label><span id="statLat">—</span></span>
+    <span class="gps-field"><label>LON</label><span id="statLon">—</span></span>
+    <span class="gps-field"><label>ALT</label><span id="statAlt">—</span></span>
+    <span class="gps-field"><label>GS</label><span id="statSpeed">—</span></span>
+    <span class="gps-field"><label>ACC</label><span id="statAcc">—</span></span>
+  </div>
+  <button id="flyBtn" class="fly-btn">▶ FLY</button>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

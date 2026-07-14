@@ -1,0 +1,228 @@
+:root {
+  --bg: #0a0e17;
+  --panel: #121a2b;
+  --panel-border: #253048;
+  --text: #dfe6f0;
+  --text-dim: #7d8aa3;
+  --accent: #ffb300;
+  --accent-dim: #8a6a1f;
+  --danger: #e53935;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* ── Top bar ── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 46px;
+  background: linear-gradient(180deg, #101725, #0d1320);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  z-index: 1200;
+  gap: 12px;
+}
+
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 1px; font-size: 14px; }
+.brand-mark { color: var(--accent); font-size: 18px; }
+.brand-name { color: var(--text); }
+
+.clock {
+  margin-left: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.icon-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── Map ── */
+#map {
+  position: absolute;
+  top: 46px; bottom: 64px; left: 0; right: 0;
+  background: #060a12;
+}
+
+.leaflet-container { background: #060a12; }
+
+/* ── Legend panel ── */
+#legendPanel {
+  position: fixed;
+  top: 56px; right: 10px;
+  width: 250px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  background: rgba(18, 26, 43, 0.96);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px;
+  z-index: 1100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+#legendPanel.hidden { display: none; }
+
+#legendPanel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.legend-swatch {
+  width: 16px; height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 2px solid;
+}
+
+.layers-section {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: var(--text);
+}
+.layer-toggle input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+.glyph-icon {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #0a0e17;
+  border: 1px solid rgba(10,14,23,0.6);
+  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+}
+
+.legend-state-explainer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.state-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.swatch-demo {
+  width: 22px; height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.swatch-demo.active { background: var(--accent); opacity: 0.9; }
+.swatch-demo.inactive { background: var(--accent); opacity: 0.2; }
+.swatch-demo.unknown { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 3px, transparent 3px, transparent 6px); opacity: 0.6; }
+
+.legend-note {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* ── Status bar / FLY button ── */
+#statusbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 64px;
+  background: linear-gradient(0deg, #0d1320, #101725);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  z-index: 1200;
+  gap: 10px;
+}
+
+.gps-status {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+}
+
+.gps-field { display: flex; flex-direction: column; min-width: 54px; }
+.gps-field label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+.gps-field span:last-child { font-size: 14px; color: var(--text); }
+
+.fly-btn {
+  background: var(--accent);
+  color: #1a1200;
+  border: none;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 1px;
+  padding: 12px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.fly-btn.tracking {
+  background: var(--danger);
+  color: #fff;
+}
+.fly-btn:active { transform: scale(0.97); }
+
+/* Aircraft marker */
+.aircraft-icon {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 0 4px rgba(255,179,0,0.9));
+}
+
+/* Airspace tooltip */
+.leaflet-tooltip.aw-tooltip {
+  background: #121a2b;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+@media (max-width: 600px) {
+  #legendPanel { width: calc(100% - 20px); left: 10px; right: 10px; }
+  .brand-name { display: none; }
+  .gps-status { gap: 8px; }
+  .gps-field { min-width: 44px; }
+}
