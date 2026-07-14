@@ -11,7 +11,7 @@
 
 const CONFIG = {
   // Obțineți o cheie gratuită pe https://www.openaip.net (cont → API Clients)
-  OPENAIP_API_KEY: "",
+  OPENAIP_API_KEY: "944afbbd2ee12d2e76636ceb6c21702c",
   ROMANIA_CENTER: [45.9432, 24.9668],
   ROMANIA_ZOOM: 7
 }
