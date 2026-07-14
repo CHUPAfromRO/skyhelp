@@ -134,10 +134,76 @@ function isCurrentlyActive(activation) {
   return { state: "unknown" }
 }
 
+// ── Fereastră ±2h: următoarea activare/dezactivare, pentru zone SCHEDULE ───
+// Caută în următoarele 8 zile cea mai apropiată tranziție viitoare de fiecare
+// tip. Returnează { activates: Date|null, deactivates: Date|null }.
+function nextScheduleTransition(activation, now) {
+  if (activation.type !== "SCHEDULE") return { activates: null, deactivates: null }
+
+  const [fh, fm] = activation.from.split(":").map(Number)
+  const [th, tm] = activation.to.split(":").map(Number)
+
+  let bestActivate = null, bestDeactivate = null
+  for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() + dayOffset)
+    if (!activation.days.includes(d.getDay())) continue
+
+    const start = new Date(d); start.setHours(fh, fm, 0, 0)
+    const end = new Date(d); end.setHours(th, tm, 0, 0)
+
+    if (start > now && bestActivate == null) bestActivate = start
+    if (end > now && bestDeactivate == null) bestDeactivate = end
+    if (bestActivate && bestDeactivate) break
+  }
+  return { activates: bestActivate, deactivates: bestDeactivate }
+}
+
+// Echivalentul pentru spații reale, din activationTimes: [{start, end}, ...]
+function nextRealTransition(airspace, now) {
+  if (!Array.isArray(airspace.activationTimes) || airspace.activationTimes.length === 0) {
+    return { activates: null, deactivates: null }
+  }
+  let bestActivate = null, bestDeactivate = null
+  airspace.activationTimes.forEach(w => {
+    const s = new Date(w.start), e = new Date(w.end)
+    if (isNaN(s) || isNaN(e)) return
+    if (s > now && (bestActivate == null || s < bestActivate)) bestActivate = s
+    if (e > now && (bestDeactivate == null || e < bestDeactivate)) bestDeactivate = e
+  })
+  return { activates: bestActivate, deactivates: bestDeactivate }
+}
+
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000
+
+function formatCountdown(targetDate, now) {
+  const diffMs = targetDate - now
+  if (diffMs <= 0) return null
+  const totalMin = Math.round(diffMs / 60000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return h > 0 ? `${h}h ${m}min` : `${m}min`
+}
+
+// Decide dacă o zonă inactivă acum trebuie totuși arătată, pentru că se va
+// activa în următoarele ±2h — cerință explicită, ca să nu dispară brusc din
+// senin o zonă care se activează în scurt timp.
+function computeVisibility(kind, def, state, now) {
+  if (state === "active" || state === "unknown") return { visible: true, upcomingActivate: null }
+  const trans = kind === "demo" ? nextScheduleTransition(def.activation, now) : nextRealTransition(def, now)
+  if (trans.activates && (trans.activates - now) <= TWO_HOURS_MS) {
+    return { visible: true, upcomingActivate: trans.activates }
+  }
+  return { visible: false, upcomingActivate: null }
+}
+
 function styleForState(baseColor, state) {
   switch (state) {
     case "active":
       return { color: baseColor, weight: 2, opacity: 0.95, fillColor: baseColor, fillOpacity: 0.32, dashArray: null }
+    case "upcoming":
+      // Inactivă acum, dar se activează în ≤2h — vizibilă, discretă, cu contur punctat
+      return { color: baseColor, weight: 1.5, opacity: 0.6, fillColor: baseColor, fillOpacity: 0.12, dashArray: "4,4" }
     case "inactive":
       return { color: baseColor, weight: 1, opacity: 0.35, fillColor: baseColor, fillOpacity: 0.06, dashArray: "5,5" }
     case "unknown":
@@ -156,12 +222,10 @@ function buildDemoAirspaceLayers(list) {
     const circle = L.circle(def.center, { radius: def.radius })
     const ceilingInfo = [formatCeiling(def.lowerCeiling), formatCeiling(def.upperCeiling)]
       .filter(Boolean).join(" → ")
-    circle.bindTooltip(
-      `<b>${def.name}</b><br>${styleInfo.label} (demo)${ceilingInfo ? `<br>${ceilingInfo}` : ""}`,
-      { className: "aw-tooltip", sticky: true }
-    )
+    const baseTooltip = `<b>${def.name}</b><br>${styleInfo.label} (demo)${ceilingInfo ? `<br>${ceilingInfo}` : ""}`
+    circle.bindTooltip(baseTooltip, { className: "aw-tooltip", sticky: true })
     const altitudeMarker = makeAltitudeMarker(def.center, def.lowerCeiling, def.upperCeiling)
-    airspaceShapes.push({ shape: circle, altitudeMarker, baseColor: styleInfo.color, kind: "demo", def })
+    airspaceShapes.push({ shape: circle, altitudeMarker, baseColor: styleInfo.color, kind: "demo", def, baseTooltip, isTowerType: def.class === "CTR" })
   })
 
   refreshAirspaceStates()
@@ -265,6 +329,12 @@ function makeAltitudeMarker(latlng, lowerCeiling, upperCeiling) {
   return L.marker(latlng, { icon: makeAltitudeLabel(text, color), interactive: false })
 }
 
+function formatGroundService(groundService) {
+  if (!groundService) return ""
+  const parts = [groundService.callsign, groundService.frequency].filter(Boolean)
+  return parts.length ? `<br>📻 ${parts.join(" — ")}` : ""
+}
+
 function buildRealAirspaceLayers(list) {
   airspaceLayer.clearLayers()
   altitudeLabelLayer.clearLayers()
@@ -289,12 +359,13 @@ function buildRealAirspaceLayers(list) {
 
     const ceilingInfo = [formatCeiling(a.lowerCeiling), formatCeiling(a.upperCeiling)]
       .filter(Boolean).join(" → ")
-    const notamNote = a.activatedByNotam ? "<br><i>Activare prin NOTAM</i>" : ""
+    const freqInfo = formatGroundService(a.groundService)
 
-    shape.bindTooltip(
-      `<b>${a.name || "Spațiu aerian"}</b><br>${styleInfo.label}${ceilingInfo ? `<br>${ceilingInfo}` : ""}${notamNote}`,
-      { className: "aw-tooltip", sticky: true }
-    )
+    // Partea statică a tooltip-ului — statusul (activ/OPEN/CLOSED/countdown)
+    // se adaugă dinamic la fiecare recalculare, în refreshAirspaceStates().
+    const baseTooltip = `<b>${a.name || "Spațiu aerian"}</b><br>${styleInfo.label}${ceilingInfo ? `<br>${ceilingInfo}` : ""}${freqInfo}`
+
+    shape.bindTooltip(baseTooltip, { className: "aw-tooltip", sticky: true })
 
     let altitudeMarker = null
     try {
@@ -304,7 +375,7 @@ function buildRealAirspaceLayers(list) {
       // geometrie invalidă pentru calculul centrului — omitem doar eticheta, nu poligonul
     }
 
-    airspaceShapes.push({ shape, altitudeMarker, baseColor: styleInfo.color, kind: "real", def: a })
+    airspaceShapes.push({ shape, altitudeMarker, baseColor: styleInfo.color, kind: "real", def: a, baseTooltip, isTowerType: typeKey === "CTR" })
   })
 
   if (skipped > 0) {
@@ -315,23 +386,43 @@ function buildRealAirspaceLayers(list) {
 }
 
 function refreshAirspaceStates() {
-  airspaceShapes.forEach(entry => {
-    const { shape, altitudeMarker, baseColor, kind, def } = entry
-    const state = kind === "demo" ? isCurrentlyActive(def.activation).state : classifyRealAirspaceState(def)
+  const now = new Date()
 
-    if (state === "inactive") {
-      // Zonă inactivă → dispare complet (nu doar estompată), cerință specifică
-      // pentru operare elicopter la joasă înălțime unde zonele inactive nu
-      // trebuie să mai ocupe atenție vizuală pe hartă.
+  airspaceShapes.forEach(entry => {
+    const { shape, altitudeMarker, baseColor, kind, def, baseTooltip, isTowerType } = entry
+    const state = kind === "demo" ? isCurrentlyActive(def.activation).state : classifyRealAirspaceState(def)
+    const { visible, upcomingActivate } = computeVisibility(kind, def, state, now)
+
+    if (!visible) {
+      // Zonă inactivă și fără activare iminentă (≤2h) → dispare complet de pe
+      // hartă, cerință specifică pentru operare elicopter la joasă înălțime.
       if (airspaceLayer.hasLayer(shape)) airspaceLayer.removeLayer(shape)
       if (altitudeMarker && altitudeLabelLayer.hasLayer(altitudeMarker)) altitudeLabelLayer.removeLayer(altitudeMarker)
       return
     }
 
-    // Activă sau "necunoscut / verificați NOTAM" → vizibilă, stil recalculat
+    const visualState = (state === "inactive" && upcomingActivate) ? "upcoming" : state
     if (!airspaceLayer.hasLayer(shape)) shape.addTo(airspaceLayer)
-    shape.setStyle(styleForState(baseColor, state))
+    shape.setStyle(styleForState(baseColor, visualState))
     if (altitudeMarker && !altitudeLabelLayer.hasLayer(altitudeMarker)) altitudeMarker.addTo(altitudeLabelLayer)
+
+    // ── Linie de status dinamică în tooltip (TWR OPEN/CLOSED, countdown) ──
+    let statusLine = ""
+    if (visualState === "upcoming") {
+      const cd = formatCountdown(upcomingActivate, now)
+      statusLine = `<br><b style="color:#ffb300">${isTowerType ? "🟡 TWR" : "⏳"} se activează în ${cd || "curând"}</b>`
+    } else if (state === "active") {
+      const trans = kind === "demo" ? nextScheduleTransition(def.activation, now) : nextRealTransition(def, now)
+      const deactivatesSoon = trans.deactivates && (trans.deactivates - now) <= TWO_HOURS_MS
+      const label = isTowerType ? "🟢 TWR OPEN" : "🟢 activ"
+      statusLine = deactivatesSoon
+        ? `<br><b style="color:#4caf50">${label}</b> — se închide în ${formatCountdown(trans.deactivates, now) || "curând"}`
+        : `<br><b style="color:#4caf50">${label}</b>`
+    } else if (state === "unknown") {
+      statusLine = `<br><b style="color:#ffb300">${isTowerType ? "🟡 TWR — verificați NOTAM" : "🟡 depinde de NOTAM"}</b>`
+    }
+
+    if (shape.setTooltipContent) shape.setTooltipContent(baseTooltip + statusLine)
   })
 }
 
@@ -535,20 +626,88 @@ function renderReportingPoints(list) {
   })
 }
 
+// =============================================================================
+// DECLUTTER INTELIGENT — în funcție de zoom și de modul Flight
+// =============================================================================
+// Straturile "secundare" (navaide, obstacole, puncte de raport, cote) se
+// ascund automat la zoom mic (prea multe simboluri, ilizibil) sau când e activ
+// modul Flight (interfață minimalistă, indiferent de zoom). Checkbox-urile din
+// panou rămân preferința utilizatorului — declutter-ul e un AND logic peste
+// acea preferință, nu o înlocuiește.
+const DECLUTTER_ZOOM_THRESHOLD = 9
+let flightModeActive = false
+
+const layerUserPreference = { navaids: true, obstacles: true, reportingPoints: true, altitudeLabels: true }
+const secondaryLayerGroups = {
+  navaids: dataLayers.navaids,
+  obstacles: dataLayers.obstacles,
+  reportingPoints: dataLayers.reportingPoints,
+  altitudeLabels: altitudeLabelLayer
+}
+
+function isDetailedViewAllowed() {
+  if (flightModeActive) return false
+  return map.getZoom() >= DECLUTTER_ZOOM_THRESHOLD
+}
+
+function syncLayerVisibility(key) {
+  const layer = secondaryLayerGroups[key]
+  const shouldShow = layerUserPreference[key] && isDetailedViewAllowed()
+  if (shouldShow) { if (!map.hasLayer(layer)) map.addLayer(layer) }
+  else { if (map.hasLayer(layer)) map.removeLayer(layer) }
+}
+
+function applyDeclutter() {
+  Object.keys(secondaryLayerGroups).forEach(syncLayerVisibility)
+}
+
+map.on("zoomend", applyDeclutter)
+
 function wireLayerToggles() {
-  const map_ = { toggleAirports: dataLayers.airports, toggleNavaids: dataLayers.navaids,
-    toggleObstacles: dataLayers.obstacles, toggleReportingPoints: dataLayers.reportingPoints,
-    toggleAltitudeLabels: altitudeLabelLayer }
-  Object.entries(map_).forEach(([id, layer]) => {
+  // Aeroporturile rămân controlate direct (esențiale la orice zoom)
+  const airportsEl = document.getElementById("toggleAirports")
+  if (airportsEl) {
+    airportsEl.addEventListener("change", e => {
+      if (e.target.checked) map.addLayer(dataLayers.airports)
+      else map.removeLayer(dataLayers.airports)
+    })
+  }
+
+  // Straturile secundare trec prin sistemul de declutter (preferință + zoom/flight)
+  const secondaryIds = { toggleNavaids: "navaids", toggleObstacles: "obstacles",
+    toggleReportingPoints: "reportingPoints", toggleAltitudeLabels: "altitudeLabels" }
+  Object.entries(secondaryIds).forEach(([id, key]) => {
     const el = document.getElementById(id)
     if (!el) return
+    layerUserPreference[key] = el.checked
     el.addEventListener("change", e => {
-      if (e.target.checked) map.addLayer(layer)
-      else map.removeLayer(layer)
+      layerUserPreference[key] = e.target.checked
+      syncLayerVisibility(key)
     })
   })
+
+  applyDeclutter()
 }
 wireLayerToggles()
+
+// =============================================================================
+// MOD FLIGHT — interfață minimalistă, optimizată pentru utilizare în zbor
+// =============================================================================
+// Ascunde panoul de legendă și aplică declutter maxim (ca la zoom mic),
+// indiferent de nivelul de zoom curent, plus mărește elementele esențiale din
+// bara de stare pentru citire rapidă în zbor.
+function setFlightMode(active) {
+  flightModeActive = active
+  document.body.classList.toggle("flight-mode", active)
+  document.getElementById("flightModeBtn").classList.toggle("active", active)
+  if (active) document.getElementById("legendPanel").classList.add("hidden")
+  applyDeclutter()
+}
+
+const flightModeBtn = document.getElementById("flightModeBtn")
+if (flightModeBtn) {
+  flightModeBtn.addEventListener("click", () => setFlightMode(!flightModeActive))
+}
 
 async function loadOpenAIPData() {
   if (!CONFIG.OPENAIP_API_KEY) {
@@ -807,7 +966,14 @@ const TerrainLayer = L.GridLayer.extend({
   }
 })
 
-const terrainLayer = new TerrainLayer({ maxNativeZoom: 12, opacity: TERRAIN_OPACITY })
+// Casetă geografică aproximativă pentru România (cu o marjă mică) — folosită
+// să restrângă straturile de suprapunere (relief, linii electrice) doar la
+// zona de interes, ca să nu aglomereze harta dacă se navighează în afara ei.
+// E o casetă dreptunghiulară, nu granița exactă a țării — zone de graniță din
+// țările vecine pot apărea marginal în interiorul casetei.
+const ROMANIA_BOUNDS = L.latLngBounds([43.55, 20.2], [48.3, 29.75])
+
+const terrainLayer = new TerrainLayer({ maxNativeZoom: 12, opacity: TERRAIN_OPACITY, bounds: ROMANIA_BOUNDS })
 
 function setTerrainVisible(visible) {
   if (visible) {
@@ -857,6 +1023,13 @@ async function loadPowerLines() {
   }
 
   const b = map.getBounds()
+  if (!b.intersects(ROMANIA_BOUNDS)) {
+    // Panoramat complet în afara României — nu interogăm Overpass degeaba.
+    powerLinesLayer.clearLayers()
+    lastOverpassBboxKey = null
+    return
+  }
+
   const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
   const key = bboxKey(bbox)
   if (key === lastOverpassBboxKey) return

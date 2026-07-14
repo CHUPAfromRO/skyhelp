@@ -231,6 +231,18 @@ html, body {
   flex-shrink: 0;
 }
 
+.icon-btn.active { background: var(--accent); color: #1a1200; border-color: var(--accent); }
+
+/* ── Mod Flight — interfață minimalistă pentru utilizare în zbor ── */
+body.flight-mode .brand-name { display: none; }
+body.flight-mode #topbar { height: 38px; }
+body.flight-mode #legendToggle { display: none; }
+body.flight-mode #map { top: 38px; bottom: 84px; }
+body.flight-mode #statusbar { height: 84px; }
+body.flight-mode .gps-field label { font-size: 11px; }
+body.flight-mode .gps-field span:last-child { font-size: 19px; }
+body.flight-mode .fly-btn { font-size: 17px; padding: 16px 26px; }
+
 /* Airspace tooltip */
 .leaflet-tooltip.aw-tooltip {
   background: #121a2b;
