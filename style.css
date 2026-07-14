@@ -63,10 +63,10 @@ html, body {
 #map {
   position: absolute;
   top: 46px; bottom: 64px; left: 0; right: 0;
-  background: #060a12;
+  background: #e8eaed;
 }
 
-.leaflet-container { background: #060a12; }
+.leaflet-container { background: #e8eaed; }
 
 /* ── Legend panel ── */
 #legendPanel {
@@ -209,6 +209,26 @@ html, body {
   width: 22px; height: 22px;
   display: flex; align-items: center; justify-content: center;
   filter: drop-shadow(0 0 4px rgba(255,179,0,0.9));
+}
+
+.altitude-label {
+  position: relative;
+  transform: translate(-50%, -50%);
+  background: rgba(10, 14, 23, 0.82);
+  border: 1.5px solid;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.altitude-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* Airspace tooltip */
